@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ParaTable casename="district">
+    <school school_name="middle">
+        <class class_name="class 1">
+            <student name="张三">
+                <attr v="age">
+                    <p v="6">26</p>
+                </attr>
+                <attr v="address">
+                    <p v="6"> 广州 </p>
+                </attr>
+                <attr v="score">
+                    <p v="6"> 61 </p>
+                    <p v="7"> 85 </p>
+                    <p v="8"> 90 </p>
+                </attr>
+                <attr v="tel">
+					<p v="6">default text.</p>
+				</attr>
+				<attr v="rank">
+                    <p v="6"> 3 </p>
+                    <p v="6"> 1 </p>
+                    <p v="6"> 2 </p>
+                </attr>
+            </student>
+        </class>
+        <class class_name="class 2">
+            <student name="李四">
+                <attr v="age">
+                    <p v="6"> 17 </p>
+                </attr>
+                <attr v="address">
+                    <p v="6"> 北京 </p>
+                </attr>
+                <attr v="score">
+                    <p v="6"> 59 </p>
+                    <p v="7"> 67 </p>
+                    <p v="8"> 71 </p>
+                </attr>
+                <attr v="rank">
+                    <p v="6"> 9 </p>
+                    <p v="6"> 7 </p>
+                    <p v="6"> 7 </p>
+                </attr>
+            </student>
+        </class>
+    </school>
+    <school school_name="special">
+
+    </school>
+</ParaTable>
