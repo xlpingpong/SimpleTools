@@ -14,10 +14,7 @@
                     <p v="7"> 85 </p>
                     <p v="8"> 90 </p>
                 </attr>
-                <attr v="tel">
-					<p v="6">default text.</p>
-				</attr>
-				<attr v="rank">
+                <attr v="rank">
                     <p v="6"> 3 </p>
                     <p v="6"> 1 </p>
                     <p v="6"> 2 </p>
