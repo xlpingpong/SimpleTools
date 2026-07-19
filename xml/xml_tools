@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 import copy
+from private_enums import SeqTrend
 
 g_node_tag_cascade = ["school", "class", "student", "attr"]
 g_node_attrib_cascade = ["school_name", "class_name", "name", "v"]
@@ -30,7 +31,8 @@ def enquire_and_operate_specific_node_dfs(node_, val_cascade_=None, pos_=0, offs
         return False
     if pos_ == len(val_cascade_):
         if operator_ is None:
-            return False
+            # 默认查询函数
+            return True
         if args_ is None:
             return operator_(node_)
         if isinstance(args_, list):
@@ -38,7 +40,8 @@ def enquire_and_operate_specific_node_dfs(node_, val_cascade_=None, pos_=0, offs
         return False
     for c_ in node_:
         if c_.tag == g_node_tag_cascade[pos_ + offset_]:
-            if c_.attrib[g_node_attrib_cascade[pos_ + offset_]] == val_cascade_[pos_]:
+            temp_attr_ = g_node_attrib_cascade[pos_ + offset_]
+            if c_.get(temp_attr_, "") == val_cascade_[pos_]:
                 return enquire_and_operate_specific_node_dfs(c_, val_cascade_=val_cascade_, pos_=pos_ + 1,
                                                              operator_=operator_, args_=args_)
     return None
@@ -54,6 +57,7 @@ def create_etree_object_hex_text(v_, attr_v_):
 def create_etree_object_str_text(text_, attr_v_):
     rst_obj_ = ET.Element('p', {'v': str(attr_v_)})
     rst_obj_.text = text_
+    rst_obj_.tail = '\n'
     return rst_obj_
 
 
@@ -319,4 +323,197 @@ def xml_g_etree_object_after(node_, atttr_name_, head_list_=None):
                 node_.insert(c_idx, tag_obj_)
                 return True
     return False
+
+
+# 0717： xml 节点值查询和更新
+def xml_detect_node_c_type(node_):
+    """
+    检测节点子节点的 c2 是否增长/相等，仅支持节点属性 c1，子节点属性 c2
+    要求子节点的 c2 严格增长或不变
+    单个子节点，返回 False
+    :param node_: 输入节点
+    :return: 增长：True，不变：False，错误：None（非严格增长，顺序错误）
+    """
+    v_start_ = 6
+    if not node_:
+        return SeqTrend.ERROR
+    if node_.tag != "attr":
+        print("检测属性增长函数：不支持的场景！")
+        return SeqTrend.ERROR
+    v_list_ = [p_.get("v", "") for p_ in node_]
+    if not v_list_:
+        return SeqTrend.ERROR
+    if len(v_list_) == 1:
+        return SeqTrend.UNKNOWN
+    v_list_ = [v_.strip() for v_ in v_list_]
+    v_list_int_ = [int(v_) for v_ in v_list_]
+    if v_list_int_[0] != v_start_:
+        return SeqTrend.ERROR
+
+    rst_ = SeqTrend.CONSTANT
+    for v_ in v_list_int_:
+        if v_start_ != v_:
+            rst_ = SeqTrend.UNKNOWN
+    if rst_ is SeqTrend.CONSTANT:
+        return rst_
+    rst_ = SeqTrend.INCREASE
+    for v_ in v_list_int_:
+        if v_start_ != v_:
+            rst_ = SeqTrend.ERROR
+        v_start_ += 1
+    return rst_
+
+
+def xml_get_node_str_values(node_, attr_name_, type_='str', ctype_=SeqTrend.UNKNOWN):
+    """
+    查询节点的值，节点为 tag 为 attr
+    :param node_: 输入节点，节点为 tag 为 attr
+    :param attr_name_: 节点属性值（校验使用）
+    :param type_: 返回值类型
+    :param ctype_: c2 是否增长，类型 SeqTrend
+    :return: 查询结果
+    """
+    if not node_:
+        return False
+    if not isinstance(attr_name_, str):
+        return False
+    attr_v_ = node_.get("v", "")
+    if attr_v_ != attr_name_:
+        return None
+    ctype_valid_ = False
+    if (ctype_ is SeqTrend.CONSTANT) or (ctype_ is SeqTrend.INCREASE):
+        ctype_valid_ = True
+    c_ = 6
+    res_vales_ = []
+    for p_ in node_:
+        str_c_ = str(c_)
+        attr_v_ = p_.get("v", "")
+        text_ = p_.text
+        text_ = text_.strip()
+
+        if ctype_valid_:
+            if ctype_ is SeqTrend.INCREASE:
+                c_ += 1
+            if attr_v_ != str_c_:
+                continue
+
+        if type_ == 'int16':
+            r_ = int(text_, 16)
+            res_vales_.append(r_)
+        elif type_ == 'int':
+            r_ = int(text_)
+            res_vales_.append(r_)
+        else:
+            res_vales_.append(text_)
+    if res_vales_:
+        return res_vales_
+    return None
+
+
+def xml_node_detect_get_str_value(node_, attr_name_):
+    ctype_ = xml_detect_node_c_type(node_)
+    rst_ = xml_get_node_str_values(node_, attr_name_, type_='str', ctype_=ctype_)
+    return ctype_, rst_
+
+
+def xml_reset_node_str_values(node_, attr_name_, value_list_=None, ctype_=SeqTrend.CONSTANT):
+    """
+    更新节点的值，操作时，会先清空原有子节点
+    :param node_: 输入节点
+    :param attr_name_: 节点属性值（校验使用）
+    :param value_list_: 更新后的节点值
+    :param ctype_: c2 是否增长，False: c2 = 6
+    :return: 成功：True
+    """
+    if not node_:
+        return False
+    if not isinstance(attr_name_, str):
+        return False
+    if not isinstance(value_list_, list):
+        return False
+    attr_v_ = node_.get("v", "")
+    if (ctype_ is not SeqTrend.CONSTANT) and (ctype_ is not SeqTrend.INCREASE):
+        print(f"{attr_v_}增长类型错误！")
+        ctype_ = SeqTrend.CONSTANT
+    if attr_v_ != attr_name_:
+        return False
+    c_ = 6
+    for chd_ in node_[:]:
+        node_.remove(chd_)
+    for v_ in value_list_:
+        new_v_ = str(v_)
+        new_p_ = create_etree_object_str_text(new_v_, c_)
+        node_.append(new_p_)
+        if ctype_ is SeqTrend.INCREASE:
+            c_ += 1
+    return True
+
+
+def xml_get_node_attrib_and_str_values(node_, attr_name_, type_='str'):
+    """
+    查询节点的值，节点为 tag 为 attr
+    :param node_: 输入节点，节点为 tag 为 attr
+    :param attr_name_: 节点属性值（校验使用）
+    :param type_: 返回值类型
+    :return: 查询结果
+    """
+    if not node_:
+        return False
+    if not isinstance(attr_name_, str):
+        return False
+    attr_v_ = node_.get("v", "")
+    if attr_v_ != attr_name_:
+        return None
+
+    attr_v_ = [p_.get("v", "") for p_ in node_]
+    text_v_ = [p_.text for p_ in node_]
+    attr_v_ = [v_.strip() for v_ in attr_v_]
+    text_v_ = [v_.strip() for v_ in text_v_]
+
+    if type_ == 'int16':
+        text_v_ = [int(v_, 16) for v_ in text_v_]
+    elif type_ == 'int':
+        text_v_ = [int(v_) for v_ in text_v_]
+    return attr_v_, text_v_
+
+
+def xml_update_node_attrib_and_str_values(node_, attr_name_, attr_v_, text_v_):
+    """
+    重置节点子节点属性和内容的值
+    :param node_:
+    :param attr_name_:
+    :param attr_v_:
+    :param text_v_:
+    :return:
+    """
+    if not node_:
+        return False
+    if not isinstance(attr_name_, str):
+        return False
+    p_attr_ = node_.get("v", "")
+    if p_attr_ != attr_name_:
+        return False
+
+    if len(attr_v_) != len(text_v_):
+        return False
+    for chd_ in node_[:]:
+        node_.remove(chd_)
+    for k_ in range(len(attr_v_)):
+        new_p_ = create_etree_object_str_text(text_v_[k_], attr_v_[k_])
+        node_.append(new_p_)
+    return True
+
+
+def xml_node_append_specific_str_value_test(node_, attr_name_, attr_='6', text_=None):
+    assert isinstance(text_, str)
+    attr_vals_, values_ = xml_get_node_attrib_and_str_values(node_, attr_name_, type_='str')
+    assert not attr_vals_
+    assert not values_
+    if (len(values_) == 1) and values_[0] == '0':
+        values_[0] = text_
+    else:
+        attr_vals_.append(attr_)
+        values_.append(text_)
+    xml_update_node_attrib_and_str_values(node_, attr_name_, attr_vals_, values_)
+    return True
 
